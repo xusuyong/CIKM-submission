@@ -1,0 +1,16 @@
+base: !include base.yaml
+
+batch_size: 1
+lr: 0.001
+
+model: "FNOInterpAhmed"
+subsample_train: 3
+subsample_eval: 2
+
+run_name: "FNOInterp"
+project_name: "ahmed-body"
+
+# dataset
+data_path: "ahmed-body-dataset"
+data_module: "AhmedBodyDataModule"
+sdf_spatial_resolution: [64, 64, 64]

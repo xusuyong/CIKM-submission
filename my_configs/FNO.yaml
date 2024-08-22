@@ -1,0 +1,8 @@
+base: !include base.yaml
+
+# Sparse graph parameters
+model: "FNO"
+modes: 12
+width: 32
+s: 32
+r: 0.1

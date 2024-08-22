@@ -1,0 +1,15 @@
+base: !include base.yaml
+
+batch_size: 1
+
+model: "GNOFNOGNO"
+run_name: "GNOFNOGNO"
+# dataset
+data_module: "CFDSDFDataModule"
+sdf_spatial_resolution: [64, 64, 64]
+num_epochs: 200
+write_to_vtk: true
+n_train: 500
+n_test: 50
+radius_in: 0.01
+radius_out: 0.01

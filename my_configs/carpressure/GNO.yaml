@@ -1,0 +1,18 @@
+base: !include base.yaml
+
+# Sparse graph parameters
+model: "GNO"
+width: 32
+r: 0.1
+
+# dataset
+batch_size: 1
+data_module: "CFDDataModule" 
+# data_module: "CarDataModule"
+num_epochs: 5
+write_to_vtk: true
+n_train: 500
+n_test: 50
+
+
+# sdf_spatial_resolution: [64, 64, 64]

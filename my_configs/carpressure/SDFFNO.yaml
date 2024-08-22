@@ -1,0 +1,13 @@
+base: !include base.yaml
+
+model: "SDFFNO"
+fno_modes: [24, 24, 24]
+hidden_channels: 32
+use_mlp: true
+norm: "group_norm"
+domain_padding: 0.125
+factorization: "tucker"
+
+# dataset
+data_module: "CFDSDFDataModule"
+sdf_spatial_resolution: [64, 64, 64]

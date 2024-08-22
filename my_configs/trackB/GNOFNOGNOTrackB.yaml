@@ -1,0 +1,43 @@
+base: !include base.yaml
+
+batch_size: 1
+lr: 0.001
+
+# optimizer
+opt:
+  scheduler: "OneCycleLR"
+
+model: "GNOFNOGNOTrackB"
+
+weighted_kernel: False
+
+run_name: "GNOFNOGNO-trackB"
+project_name: "trackB"
+
+pretrained_model: 0
+pretrained_model_path: "logs/2024-06-15_11-05-41/model-Transolver-5.pt"
+
+# dataset
+# data_path: "ahmed-body-dataset"
+data_module: "TrackBDataModule"
+sdf_spatial_resolution: [64, 64, 64]
+
+track: "Track_B"
+data_dir: "../../xsy_datasets/IJCAI_dataset/aistuio/data_train_B"
+test_data_dir: "../../xsy_datasets/IJCAI_dataset/aistuio/data_test_B"
+# test_data_dir: "../../xsy_datasets/IJCAI_dataset/aistuio/data_validate_B"
+
+point_data_pos: "press on mesh points"
+Require_sdf: True
+closest_points_to_query: True
+
+num_epochs: 1
+write_to_vtk: True
+n_train: 1
+n_test:  1
+
+radius_in: 0.05
+radius_out: 0.05
+
+subsample_train: 8
+subsample_eval: 1

@@ -1,0 +1,37 @@
+base: !include base.yaml
+
+batch_size: 1
+lr: 0.0005
+
+# Sparse graph parameters
+model: "UNetAhmed"
+use_position_input: True # whether to use position as extra input
+out_channels: 1
+hidden_channels: 64
+num_levels: 4
+subsample_train: 2
+subsample_eval: 1
+
+run_name: "Unet-v2"
+project_name: "ahmed-body"
+
+# dataset
+data_path: "ahmed-body-dataset"
+data_module: "AhmedBodyDataModule"
+sdf_spatial_resolution: [64, 64, 64]
+
+n_train: 2
+n_test: 2
+
+track: "Track_B"
+# data_module: "TrackBDataModule"
+data_dir: "/home/xusuyong/pythoncode/xsy_datasets/IJCAI_dataset/aistuio/data_train_B"
+test_data_dir: "/home/xusuyong/pythoncode/xsy_datasets/IJCAI_dataset/aistuio/data_test_B"
+
+# n_train: 2
+# n_test: 2
+# sdf_spatial_resolution: [64, 64, 64]
+point_data_pos: "press on mesh points"
+
+# eval setting
+write_to_vtk: True
