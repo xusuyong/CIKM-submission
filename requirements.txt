@@ -2,3 +2,4 @@ open3d
 timm
 einops
 torchtyping
+vtk
