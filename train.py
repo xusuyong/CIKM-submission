@@ -371,23 +371,22 @@ if __name__ == "__main__":
     os.makedirs("./output/", exist_ok=True)
     config_p, args = load_yaml("configs/transolver/Conv-Transolver_Press.yaml")
     config_p.n_test = 1
-    # train(config_p, args)
+    train(config_p, args)
 
     index_list = np.loadtxt("../../xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/train_data_1_velocity/watertight_meshes.txt", dtype=int)
     config_v, args = load_yaml("configs/transolver/Conv-Transolver_Velocity.yaml")
     config_v.train_index_list = index_list[: config_v.n_train].tolist()
     config_v.test_index_list = index_list[500 : 500 + config_v.n_test].tolist()
-    # train(config_v, args)
-    # exit()
+    train(config_v, args)
 
     config_cd, args = load_yaml("configs/transolver/RegDGCNN_Cd.yaml")
     index_list = np.loadtxt("../../xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/Training/Dataset_2/Label_File/dataset2_train_label.csv", delimiter=",", dtype=str, encoding='utf-8')[:,1][1:]
     config_cd.train_index_list = index_list[:500].tolist()
     config_cd.test_index_list = index_list[500:550].tolist()
-    # train(config_cd, args)
+    train(config_cd, args)
 
     # test on leader_board, or do evaluation by yourself
     leader_board(config_p,  "Gen_Answer")
     leader_board(config_v,  "Gen_Answer")
-    # leader_board(config_cd, "Gen_Answer")
+    leader_board(config_cd, "Gen_Answer")
     # os.system(f"zip -r -j ./output/Gen_Answer.zip ./output/Gen_Answer")

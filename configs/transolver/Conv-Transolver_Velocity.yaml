@@ -3,7 +3,7 @@ run_name: "Transolver_conv_proj"
 project_name: "Transolver_conv_proj"
 
 # train setting
-num_epochs: 250
+num_epochs: 1
 batch_size: 1
 eval_batch_size: 1
 lr: 0.001
