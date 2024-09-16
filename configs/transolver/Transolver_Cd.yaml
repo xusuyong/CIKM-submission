@@ -1,0 +1,45 @@
+base: !include base.yaml
+run_name: "Transolver-Cd"
+project_name: "Transolver-Cd"
+
+# train setting
+num_epochs: 5
+batch_size: 1
+eval_batch_size: 1
+lr: 0.001
+device: cuda:0
+save_interval: 50
+
+# model setting
+mode: "train"
+model: "Transolver_Cd"
+in_channels: 4
+out_channels: 3 # velociy x, velociy y, velociy z
+num_levels: 4
+hidden_channels: 64
+use_position_input: True
+
+# dataset setting
+data_module: "CdDataModule"
+train_data_dir: "/home/xusuyong/pythoncode/xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/Training/Dataset_2/Feature_File/"
+test_data_dir: "/home/xusuyong/pythoncode/xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/Test/Dataset_2/Feature_File/"
+sdf_spatial_resolution: [64, 64, 64]
+point_data_pos: "press on mesh points"
+
+# eval setting
+write_to_vtk: false
+out_keys: ["Cd"]
+track: "Dataset_2_Cd"
+
+#model
+n_hidden: 256
+n_layers: 2
+space_dim: 7
+fun_dim: 0
+n_head: 8
+mlp_ratio: 2
+out_dim: 1
+slice_num: 16
+unified_pos: 0
+subsample_train: 1
+subsample_eval: 1

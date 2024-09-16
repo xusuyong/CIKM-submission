@@ -511,7 +511,7 @@ class CFDSDFDataModule(CFDDataModule):
         train_mesh_pathes = [self.get_mesh_path(data_dir, i) for i in train_indices]
         test_mesh_pathes = [self.get_mesh_path(data_dir, i) for i in test_indices]
 
-        infer_data_dir = Path("../../xsy_datasets/IJCAI_dataset/aistuio/data_test_A")
+        infer_data_dir = Path("/home/xusuyong/pythoncode/xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/test_data_1")
         infer_data_dir = infer_data_dir.expanduser()
         assert infer_data_dir.exists(), "Path does not exist"
         assert infer_data_dir.is_dir(), "Path is not a directory"
@@ -773,7 +773,7 @@ class CFDNormalDataModule(CFDDataModule):
         self.train_indices = train_indices
         self.test_indices = test_indices
 
-        infer_data_dir = Path("../../xsy_datasets/IJCAI_dataset/aistuio/data_test_A")
+        infer_data_dir = Path("../../xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/test_data_1")
         infer_data_dir = infer_data_dir.expanduser()
         assert infer_data_dir.exists(), "Path does not exist"
         assert infer_data_dir.is_dir(), "Path is not a directory"

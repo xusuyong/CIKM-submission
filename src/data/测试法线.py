@@ -2,6 +2,7 @@ import sys
 
 sys.path.append("./PaddleScience/")
 sys.path.append("/home/aistudio/3rd_lib")
+sys.path.append("/home/xusuyong/pythoncode/myproj/CIKM-submission")
 
 import vtk
 import torch
@@ -216,12 +217,69 @@ class VelocityDataModule(BaseDataModule):
 #     data_dict["info"] = [{"load_velocity": 33.33}]
 #     return data_dict
 
+# import numpy as np  
+# import vtk  
+# from vtk.util.numpy_support import vtk_to_numpy  
+
+def calculate_normals(polydata):  
+    # 获取点和单元数  
+    points = vtk_to_numpy(polydata.GetPoints().GetData())  
+    cells = polydata.GetCells()  
+
+    # 初始化法线数组  
+    normals = np.zeros(points.shape, dtype=np.float32)  
+    cell_normals = []  
+
+    # 遍历每个面  
+    for i in range(polydata.GetNumberOfCells()):  
+        cell = polydata.GetCell(i)  
+        num_points = cell.GetNumberOfPoints()  
+        
+        if num_points < 3:  # 至少需要三个点才能计算法线  
+            continue  
+        
+        # 获取这三个点的位置  
+        p0 = points[cell.GetPointId(0)]  
+        p1 = points[cell.GetPointId(1)]  
+        p2 = points[cell.GetPointId(2)]  
+        
+        # 计算法线（交叉乘积）  
+        v1 = p1 - p0  
+        v2 = p2 - p0  
+        normal = np.cross(v1, v2)  
+        normal_length = np.linalg.norm(normal)  
+        
+        # 确保法线单位化  
+        if normal_length > 0:  
+            normal /= normal_length  
+        
+        # 将法线添加到cell_normals，并更新每个点的法线  
+        cell_normals.append(normal)  
+        for j in range(num_points):  
+            normals[cell.GetPointId(j)] += normal  
+
+    # 对点法线进行单位化  
+    for i in range(len(normals)):  
+        length = np.linalg.norm(normals[i])  
+        if length > 0:  
+            normals[i] /= length  
+
+    return normals  
+
+
+
+
 if __name__ == "__main__":
-    file_path = "/home/aistudio/1a0bc9ab92c915167ae33d942430658c.obj"
-    _, polydata = read_obj(file_path)
-    data_dict = {
-        "centroids": centoirds(polydata),
-        # "areas":        areas(polydata),
-        # "normal":       normals(polydata),
-    }
-    print(centoirds(polydata))
+        # 使用示例  
+    file_path = "/home/xusuyong/pythoncode/xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/train_data_1_velocity/mesh_001.vtk"  
+    reader, polydata = read_vtk(file_path)  
+    normals = calculate_normals(polydata)
+    print(normals.shape)
+    # file_path = "/home/aistudio/1a0bc9ab92c915167ae33d942430658c.obj"
+    # _, polydata = read_obj(file_path)
+    # data_dict = {
+    #     "centroids": centoirds(polydata),
+    #     # "areas":        areas(polydata),
+    #     # "normal":       normals(polydata),
+    # }
+    # print(centoirds(polydata))

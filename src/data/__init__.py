@@ -1,5 +1,6 @@
 from .cfd_datamodule import CFDSDFDataModule, CFDDataModule, AhmedBodyDataModule, CFDNormalDataModule, CarDataModule, TrackBDataModule
-
+from .velocity_datamodule import VelocityDataModule
+from .cd_datamodule import CdDataModule
 
 def instantiate_datamodule(config):
     if config.data_module == "CFDDataModule":
@@ -50,6 +51,23 @@ def instantiate_datamodule(config):
             n_train=config.n_train,
             n_test=config.n_test,
             spatial_resolution=config.sdf_spatial_resolution,
+        )
+    elif config.data_module == "VelocityDataModule":
+        assert config.sdf_spatial_resolution is not None
+        return VelocityDataModule(
+            config.train_data_dir,
+            config.test_data_dir,
+            config.train_index_list,
+            config.test_index_list,
+        )
+    elif config.data_module == "CdDataModule":
+        assert config.sdf_spatial_resolution is not None
+        return CdDataModule(
+            config.train_data_dir,
+            config.test_data_dir,
+            config.train_index_list,
+            config.test_index_list,
+            config.num_points,
         )
     else:
         raise NotImplementedError(f"Unknown datamodule: {config.data_module}")

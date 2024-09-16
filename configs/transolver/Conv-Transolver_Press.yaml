@@ -7,28 +7,29 @@ lr: 0.001
 opt:
   scheduler: "OneCycleLR"
 
-model: "Transolver_conv_multifi"
-run_name: "Transolver_conv_multifi"
+model: "Transolver_conv_proj"
+run_name: "Transolver_conv_proj"
 
 pretrained_model: 0
 pretrained_model_path: "logs/2024-06-15_11-05-41/model-Transolver-5.pt"
+track: "Dataset_1_press"
 
 # dataset
 # data_module: "CFDDataModule"
 data_module: "CFDNormalDataModule"
 
 sdf_spatial_resolution: [64, 64, 64]
-num_epochs: 1
+num_epochs: 800
 write_to_vtk: true
-n_train: 5
-n_test: 5
+n_train: 499
+n_test: 1
 
-use_multifi: true
+use_multifi: false
 
 #model
 n_hidden: 256
 n_layers: 2
-space_dim: 7
+space_dim: 6
 fun_dim: 0
 n_head: 8
 mlp_ratio: 2
@@ -37,3 +38,5 @@ slice_num: 32
 unified_pos: 0
 subsample_train: 1
 subsample_eval: 1
+
+model_path: "model/model-Transolver_conv_proj-Dataset_1_press.pth"

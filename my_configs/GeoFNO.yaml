@@ -1,9 +1,0 @@
-base: !include base.yaml
-
-# Sparse graph parameters
-model: "GeoFNO"
-modes: 12
-width: 32
-s: 40
-
-lr: 0.0005

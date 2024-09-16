@@ -1,0 +1,32 @@
+base: !include base.yaml
+run_name: 'UNetShapeNetCar'
+project_name: "ShapeNetCar"
+
+# train setting
+num_epochs: 1
+batch_size: 1
+eval_batch_size: 1
+lr: 0.001
+device: cuda:0
+save_interval: 50
+
+# model setting
+mode: "train"
+model: "UNet"
+in_channels: 4
+out_channels: 3 # velociy x, velociy y, velociy z
+num_levels: 4
+hidden_channels: 64
+use_position_input: True
+
+# dataset setting
+data_module: "CdDataModule"
+train_data_dir: "/home/xusuyong/pythoncode/xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/Training/Dataset_2/Feature_File/"           
+test_data_dir: "/home/xusuyong/pythoncode/xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/Test/Dataset_2/Feature_File/"      
+sdf_spatial_resolution: [64, 64, 64]
+point_data_pos: "press on mesh points" 
+
+# eval setting
+write_to_vtk: false
+out_keys: ["Cd"]
+track : "Dataset_2_Cd"

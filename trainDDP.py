@@ -36,13 +36,30 @@ def set_seed(seed: int = 0):
 def str2intlist(s: str) -> List[int]:
     return [int(item.strip()) for item in s.split(",")]
 
+def load_yaml(file_name):
+    args = parse_args(file_name)
+    # args = parse_args("Unet_Velocity.yaml")
+    config = load_config(args.config)
 
-def parse_args():
+    # Update config with command line arguments
+    for key, value in vars(args).items():
+        if key != "config" and value is not None:
+            config[key] = value
+
+    # pretty print the config
+    if True:
+        print(f"\n--------------- Config [{file_name}] Table----------------")
+        for key, value in config.items():
+            print("Key: {:<30} Val: {}".format(key, value))
+        print("--------------- Config yaml Table----------------\n")
+    return config, args
+
+def parse_args(yaml="UnetShapeNetCar.yaml"):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config",
         type=str,
-        default="my_configs/trackB/UNetAhmed.yaml",
+        default=yaml,
         help="Path to the configuration file",
     )
     parser.add_argument(
@@ -87,20 +104,8 @@ def parse_args():
         default=None,
         help="SDF spatial resolution. Use comma to separate the values e.g. 32,32,32.",
     )
-    parser.add_argument(
-        "--world_size", type=int, default=2, help="Number of processes for DDP"
-    )
-    parser.add_argument(
-        "--rank", type=int, default=0, help="Rank of the process for DDP"
-    )
-    parser.add_argument(
-        "--dist_url",
-        type=str,
-        default="tcp://127.0.0.1:23456",
-        help="URL used to set up distributed training",
-    )
 
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     return args
 
 
@@ -150,7 +155,7 @@ def eval(model, datamodule, config, loss_fn=None):
     return eval_meter.avg, merged_image_dict
 
 
-def train(rank, world_size):
+def train(rank, world_size, config, args):
     args = parse_args()
     config = load_config(args.config)
 
@@ -189,7 +194,7 @@ def train(rank, world_size):
         batch_size=config.batch_size, shuffle=False, sampler=train_sampler
     )
 
-    Transolver_type_model = ["Transolver", "Transolver_conv_proj"]
+    Transolver_type_model = ["Transolver", "Transolver_conv_proj", "Transolver-Cd"]
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=config.lr,
@@ -255,8 +260,12 @@ def train(rank, world_size):
 if __name__ == "__main__":
 
     world_size = torch.cuda.device_count()
+    config_cd, args = load_yaml("configs/transolver/Transolver_Cd.yaml")
+    index_list = np.loadtxt("/home/xusuyong/pythoncode/xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/Training/Dataset_2/Label_File/dataset2_train_label.csv", delimiter=",", dtype=str, encoding='utf-8')[:,1][1:]
+    config_cd.train_index_list = index_list[:5].tolist()  
+    config_cd.test_index_list = index_list[500:501].tolist()  
     # world_size=2
     if world_size > 1:
-        mp.spawn(train, args=(world_size,), nprocs=world_size, join=True)#world_size之后一定要有逗号
+        mp.spawn(train, args=(world_size, config_cd, args), nprocs=world_size, join=True)#world_size之后一定要有逗号
     else:
-        train(0, 1)
+        train(0, 1, config_cd, args)

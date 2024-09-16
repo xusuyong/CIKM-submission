@@ -3,6 +3,8 @@ import matplotlib
 matplotlib.use("Agg")  # Set the backend to Agg
 
 import os
+import csv
+import pandas as pd
 from typing import List, Tuple, Union
 import numpy as np
 import yaml
@@ -34,12 +36,12 @@ def str2intlist(s: str) -> List[int]:
     return [int(item.strip()) for item in s.split(",")]
 
 
-def parse_args():
+def parse_args(yaml="UnetShapeNetCar.yaml"):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config",
         type=str,
-        default="my_configs/trackB/UNetAhmed.yaml",
+        default=yaml,
         help="Path to the configuration file",
     )
     parser.add_argument(
@@ -85,7 +87,7 @@ def parse_args():
         help="SDF spatial resolution. Use comma to separate the values e.g. 32,32,32.",
     )
 
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
     return args
 
 
@@ -125,7 +127,7 @@ def eval(model, datamodule, config, loss_fn=None):
     eval_meter = AverageMeterDict()
     visualize_data_dicts = []
     for i, data_dict in enumerate(test_loader):
-        out_dict = model.eval_dict(
+        out_dict, _ = model.eval_dict(
             data_dict, loss_fn=loss_fn, decode_fn=None
         )
         eval_meter.update(out_dict)
@@ -145,10 +147,11 @@ def eval(model, datamodule, config, loss_fn=None):
     return eval_meter.avg, merged_image_dict
 
 
-def train(config, device: Union[torch.device, str] = "cuda:0"):
+def train(config, args, device: Union[torch.device, str] = "cuda:0"):
     # Initialize the device
     device = torch.device(device)
     loggers, log_dir = init_logger(config)
+    config.log_dir=log_dir
     # 将配置文件复制到日志文件夹中
     os.system(f"cp {args.config} {log_dir}")
     # Initialize the model
@@ -164,7 +167,7 @@ def train(config, device: Union[torch.device, str] = "cuda:0"):
     )
 
     # Initialize the optimizer
-    Transolver_type_model = ["Transolver", "Transolver_conv_proj"]
+    Transolver_type_model = ["Transolver", "Transolver_conv_proj", "Transolver-Cd"]
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=config.lr,
@@ -219,19 +222,17 @@ def train(config, device: Union[torch.device, str] = "cuda:0"):
 
         # Save the weights
         if ep % config.eval_interval == 0 or ep == config.num_epochs - 1:
-            print(f"saving model to ./{log_dir}/model-{config.model}-{ep}.pt")
-            torch.save(model, os.path.join(f"./{log_dir}/", f"model-{config.model}-{ep}.pt"))
-            # print(f"saving model state to ./{log_dir}/model-{config.model}-{ep}.pth")
-            # torch.save(
-            #     model.state_dict(),
-            #     os.path.join(f"./{log_dir}/", f"model_state-{config.model}-{ep}.pth"),
-            # )
+            # print(f"saving model to ./{log_dir}/model-{config.model}-{ep}.pt")
+            # torch.save(model, os.path.join(f"./{log_dir}/", f"model-{config.model}-{config.track}-{ep}.pt"))
+            print(f"saving model state to ./{log_dir}/model-{config.model}-{config.track}-{ep}.pth")
+            torch.save(
+                model.state_dict(),
+                os.path.join(f"./{log_dir}/", f"model_state-{config.model}-{config.track}-{ep}.pth"),
+            )
 
-
-if __name__ == "__main__":
-    args = parse_args()
-    # print command line args
-    print(args)
+def load_yaml(file_name):
+    args = parse_args(file_name)
+    # args = parse_args("Unet_Velocity.yaml")
     config = load_config(args.config)
 
     # Update config with command line arguments
@@ -240,10 +241,153 @@ if __name__ == "__main__":
             config[key] = value
 
     # pretty print the config
-    for key, value in config.items():
-        print(f"{key}: {value}")
+    if True:
+        print(f"\n--------------- Config [{file_name}] Table----------------")
+        for key, value in config.items():
+            print("Key: {:<30} Val: {}".format(key, value))
+        print("--------------- Config yaml Table----------------\n")
+    return config, args
 
-    # Set the random seed
-    if config.seed is not None:
-        set_seed(config.seed)
-    train(config, device=args.device)
+import re
+def extract_numbers(s):
+    return [int(digit) for digit in re.findall(r'\d+', s)]
+
+def write_to_vtk(out_dict, point_data_pos="press on mesh points", mesh_path=None, track=None):
+    import meshio
+    p = out_dict["pressure"]
+    index = extract_numbers(mesh_path.name)[0]
+
+    if track == "Dataset_1":
+        index = str(index).zfill(3)   
+    elif track == "Track_B":
+        index = str(index).zfill(4)
+
+    print(f"Pressure shape for mesh {index} = {p.shape}")
+
+        
+    if point_data_pos == "press on mesh points":
+        mesh = meshio.read(mesh_path)
+        mesh.point_data["p"] = p.numpy()
+        if "pred wss_x" in out_dict:
+            wss_x = out_dict["pred wss_x"]
+            mesh.point_data["wss_x"] = wss_x.numpy()
+    elif point_data_pos == "press on mesh cells":
+        points = np.load(mesh_path.parent / f"centroid_{index}.npy")
+        npoint = points.shape[0]
+        mesh = meshio.Mesh(
+            points=points, cells=[("vertex", np.arange(npoint).reshape(npoint, 1))]
+        )
+        mesh.point_data = {"p":p.numpy()}
+
+    print(f"write : ./output/{mesh_path.parent.name}_{index}.vtk")
+    mesh.write(f"./output/{mesh_path.parent.name}_{index}.vtk") 
+
+@torch.no_grad()
+def infer(model, datamodule, config, loss_fn=None, track="Dataset_1"):
+    model.eval()
+    test_loader = datamodule.test_dataloader(batch_size=config.eval_batch_size, shuffle=False, num_workers=0)
+    data_list = []
+    cd_list = []
+    global_index = 0
+    for i, data_dict in enumerate(test_loader):
+        out_loss_dict, output_dict = model.eval_dict(data_dict, loss_fn=loss_fn, decode_fn=datamodule.decode)
+        if'l2 eval loss' in out_loss_dict: 
+            if i == 0:
+                data_list.append(['id', 'l2 p'])
+            else:
+                data_list.append([i, float(out_loss_dict['l2 eval loss'])])
+        
+        # TODO : you may write velocity into vtk, and analysis in your report
+        if config.write_to_vtk is True:
+            print("datamodule.test_mesh_paths = ", datamodule.test_mesh_paths[i])
+            write_to_vtk(output_dict, config.point_data_pos, datamodule.test_mesh_paths[i], track)
+        
+        # Your submit your npy to leaderboard here
+        if "pressure" in output_dict:
+            p = output_dict["pressure"].reshape((-1,)).astype(np.float32)
+            test_indice = datamodule.test_indices[i]
+            npy_leaderboard = f"./output/{track}/press_{str(test_indice).zfill(3)}.npy"
+            print(f"saving *.npy file for [{track}] leaderboard : ", npy_leaderboard)
+            np.save(npy_leaderboard, p)
+        if "velocity" in output_dict:
+            v = output_dict["velocity"].cpu().reshape((-1,3)).numpy()
+            test_indice = datamodule.test_indices[i]
+            npy_leaderboard = f"./output/{track}/vel_{str(test_indice).zfill(3)}.npy"
+            print(f"saving *.npy file for [{track}] leaderboard : ", npy_leaderboard)
+            np.save(npy_leaderboard, v)
+        if "cd" in output_dict:
+            cd_values = output_dict["cd"].squeeze(1)  
+            # 假设你有一个样本索引列表（这里我们使用range来模拟）  
+            # 注意：在实际应用中，这些索引可能来自你的数据加载器或数据模块  
+            batch_size = cd_values.size(0)  
+            for i in range(batch_size):  
+                # 使用global_index来确保索引在整个数据集中是连续的  
+                cd_list.append([global_index, cd_values[i].item()])  
+                global_index += 1  
+            # v = output_dict["cd"].item()
+            # test_indice = datamodule.test_indices[i]
+            # cd_list.append([i, v])
+
+        # check csv in ./output
+        with open(f"./output/{config.project_name}.csv", "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerows(data_list)
+
+    if "cd" in output_dict:
+        titles = ["", "Cd"]
+        df = pd.DataFrame(cd_list, columns=titles)
+        df.to_csv(f'./output/{track}/Answer.csv', index=False)
+    return
+
+def leader_board(config, track):
+    os.makedirs(f"./output/{track}/", exist_ok=True)
+    
+    model = instantiate_network(config)  # 实例化网络
+    checkpoint = torch.load(f"{config.model_path}")
+    model.load_state_dict(checkpoint)
+    # model.load_state_dict(torch.load("/home/xusuyong/pythoncode/myproj/CIKM-submission/logs/2024-09-15_09-49-42/model_state-Transolver_conv_proj-Dataset_1_velocity-249.pth"))
+    
+
+    # model = instantiate_network(config)
+    # model = torch.load(f"{config.log_dir}/model-{config.model}-{config.track}-{config.num_epochs - 1}.pt")
+    # model = torch.load(f"{config.model_path}")
+    # torch.save(model, os.path.join(f"./", f"model-{config.model}-{config.track}.pt"))
+    # torch.save(model.state_dict(), os.path.join(f"./", f"model-{config.model}-{config.track}.pth"))
+    exit()
+    # checkpoint = torch.load(f"{config.log_dir}/model_state-{config.model}-{config.track}-{config.num_epochs - 1}.pth")
+    # model.load_state_dict(checkpoint)
+    print(f"\n-------Starting Evaluation over [{config.track}] --------")
+    config.n_train = 1
+    t1 = default_timer()
+    
+    config.mode="test"
+    datamodule = instantiate_datamodule(config)
+    eval_dict = infer(model, datamodule, config, loss_fn=lambda x,y:0, track=track)
+    t2 = default_timer()
+    print(f"Inference over [Dataset_1 pressure] took {t2 - t1:.2f} seconds.")
+
+
+if __name__ == "__main__":
+    os.makedirs("./output/", exist_ok=True)
+    config_p, args = load_yaml("configs/transolver/Conv-Transolver_Press.yaml")
+    config_p.n_test = 1
+    # train(config_p, args)
+
+    index_list = np.loadtxt("../../xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/train_data_1_velocity/watertight_meshes.txt", dtype=int)
+    config_v, args = load_yaml("configs/transolver/Conv-Transolver_Velocity.yaml")
+    config_v.train_index_list = index_list[: config_v.n_train].tolist()
+    config_v.test_index_list = index_list[500 : 500 + config_v.n_test].tolist()
+    # train(config_v, args)
+    # exit()
+
+    config_cd, args = load_yaml("configs/transolver/RegDGCNN_Cd.yaml")
+    index_list = np.loadtxt("../../xsy_datasets/CIKM_dataset/AIstudio_CIKM_dataset/Training/Dataset_2/Label_File/dataset2_train_label.csv", delimiter=",", dtype=str, encoding='utf-8')[:,1][1:]
+    config_cd.train_index_list = index_list[:500].tolist()
+    config_cd.test_index_list = index_list[500:550].tolist()
+    # train(config_cd, args)
+
+    # test on leader_board, or do evaluation by yourself
+    leader_board(config_p,  "Gen_Answer")
+    leader_board(config_v,  "Gen_Answer")
+    # leader_board(config_cd, "Gen_Answer")
+    # os.system(f"zip -r -j ./output/Gen_Answer.zip ./output/Gen_Answer")

@@ -314,50 +314,73 @@ class Transolver_conv_proj(BaseModel):
         return fx  # 返回第一个样本（因为batchsize是1？？） torch.Size([1, 3586, 1])
 
     def data_dict_to_input(self, data_dict, **kwargs):
-        if "vert_normals" in data_dict:
+        if "vert_normals" in data_dict.keys():
             vert_normals = data_dict["vert_normals"].to(self.device)
             return vert_normals
-        elif "centroids" in data_dict and "areas" in data_dict:
+        elif "cd" in data_dict.keys():
+            centroids = data_dict["centroids"][0].to(self.device)
+            areas = data_dict["areas"][0].unsqueeze(-1).to(self.device)
+            normal = data_dict["normal"][0].to(self.device)
+            ca = torch.cat([centroids, areas, normal], dim=1)
+            return ca
+        elif "centroids" in data_dict.keys() and "areas" in data_dict.keys():
             centroids = data_dict["centroids"][0].to(self.device)
             areas = data_dict["areas"][0].unsqueeze(-1).to(self.device)
             ca = torch.cat([centroids, areas], dim=1)
             return ca
-        elif "vertices" in data_dict:
+        elif "vertices" in data_dict.keys():
             vert = data_dict["vertices"].to(self.device)
             return vert
 
     @torch.no_grad()
     def eval_dict(self, data_dict, loss_fn=None, decode_fn=None):
         vert = self.data_dict_to_input(data_dict)
-        pred_out = self(vert)
-        if isinstance(data_dict["pressure"], list):
-            gt_out = data_dict["pressure"][0].to(self.device)
+        pred_var = self(vert)
+        if "pressure" in data_dict.keys():
+            if isinstance(data_dict["pressure"], list):
+                gt_out = data_dict["pressure"][0]
+            else:
+                gt_out = data_dict["pressure"]
+            pred_var_key = "pressure"
+        elif "velocity" in data_dict.keys():
+            gt_out = data_dict["velocity"]
+            pred_var_key = "velocity"
+        elif "cd" in data_dict.keys():
+            pred_var = torch.mean(pred_var).reshape(1,1)
+            gt_out = data_dict["cd"]
+            pred_var_key = "cd"
         else:
-            gt_out = data_dict["pressure"].to(self.device)
-        out_dict = {"l2": loss_fn(pred_out, gt_out)}
+            raise NotImplementedError("only pressure velocity works")
+
+        out_loss_dict = {"l2": loss_fn(pred_var, gt_out.to(self.device))}
         if decode_fn is not None:
-            pred_out = decode_fn(pred_out)
+            pred_var = decode_fn(pred_var)
             gt_out = decode_fn(gt_out)
-            out_dict["l2_decoded"] = loss_fn(pred_out, gt_out)
-        return out_dict
+            out_loss_dict["l2_decoded"] = loss_fn(pred_var, gt_out)
+        output_dict = {pred_var_key: pred_var}
+        return out_loss_dict, output_dict
 
     def loss_dict(self, data_dict, loss_fn=None):
         vert_normal = self.data_dict_to_input(data_dict)
         vert_normal = vert_normal[:: self.subsample_train]
-        pressure = self(vert_normal)
+        pred_var = self(vert_normal)
         if loss_fn is None:
             loss_fn = self.loss
         # loss_fn = torch.nn.MSELoss(reduction="mean")
-
-        if isinstance(data_dict["pressure"], list):
-            truth = data_dict["pressure"][0][:: self.subsample_train]
-            return {"loss": loss_fn(pressure.squeeze(-1), truth.to(self.device))}
+        if "pressure" in data_dict.keys():
+            if isinstance(data_dict["pressure"], list):
+                true_var = data_dict["pressure"][0][:: self.subsample_train]
+            else:
+                true_var = data_dict["pressure"]
+        elif "velocity" in data_dict.keys():
+            true_var = data_dict["velocity"]
+        elif "cd" in data_dict.keys():
+            pred_var = torch.mean(pred_var).reshape(1,1)
+            true_var = data_dict["cd"]
         else:
-            return {
-                "loss": loss_fn(
-                    pressure.squeeze(-1), data_dict["pressure"].to(self.device)
-                )
-            }
+            raise NotImplementedError("only pressure velocity works")
+
+        return {"loss": loss_fn(pred_var.squeeze(-1), true_var.to(self.device))}
 
     # def loss_dict(self, data_dict, loss_fn=None):
     #     vert_normal = self.data_dict_to_input(data_dict)
